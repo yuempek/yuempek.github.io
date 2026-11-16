@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kompleks düzlemde eksen kesişimleri</title>
+<style>
+:root{--bg:#f5f7fa;--panel:#fff;--ink:#17202b;--mute:#5b6675;--grid:#dde3ea;--axis:#8a95a3;
+--z1:#2563eb;--z2:#d97706;--p:#0d9488;--r:#c026d3;--hit:#dc2626;--line:#d3dae3;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10151c;--panel:#18202a;--ink:#e6ebf2;--mute:#96a2b3;--grid:#26303c;--axis:#6b7788;
+--z1:#60a5fa;--z2:#fbbf24;--p:#2dd4bf;--r:#e879f9;--hit:#f87171;--line:#2d3744}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1000px;margin:0 auto;padding:20px 16px 40px}
+h1{font:600 1.5rem/1.25 Georgia,"Times New Roman",serif;margin:0 0 4px}
+.sub{color:var(--mute);margin:0 0 16px;max-width:62ch}
+.steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+button{font:inherit;font-size:.9rem;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--axis)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--z1);outline-offset:2px}
+button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.explain{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:12px;min-height:5.5em}
+.explain b{font-weight:600}
+.m{font-family:Cambria,"Cambria Math",Georgia,serif;font-style:italic}
+.planes{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:700px){.planes{grid-template-columns:1fr}}
+figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+figcaption{padding:8px 12px;font-size:.88rem;color:var(--mute);border-bottom:1px solid var(--line)}
+canvas{display:block;width:100%;aspect-ratio:1/1}
+.ctl{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 18px;margin:14px 0}
+label{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;align-items:center;font-size:.88rem}
+label output{grid-column:1/-1;font-variant-numeric:tabular-nums;color:var(--mute);margin-top:-4px}
+input[type=range]{width:100%;accent-color:var(--z1)}
+.read{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;font-size:.88rem}
+.read div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-variant-numeric:tabular-nums}
+.read small{display:block;color:var(--mute)}
+.warn{color:var(--hit);min-height:1.4em;font-size:.88rem}
+</style>
+</head>
+<body>
+<main>
+<h1>Bir doğrunun eksen kesişimleri</h1>
+<p class="sub"><span class="m">R = (P₂ − P₁)/(z₂ − z₁)</span> bölümü, <span class="m">P₂</span> yatayda kayarken <span class="m">R</span>’yi düz bir çizgi üzerinde hareket ettirir. Adımları sırayla aç, sonra kaydırıcılarla dene.</p>
+
+<div class="steps" id="steps" role="group" aria-label="Adımlar"></div>
+<div class="explain" id="explain" aria-live="polite"></div>
+
+<div class="planes">
+<figure><figcaption>P düzlemi: birim çember, <span class="m">z₁</span>, <span class="m">z₂</span>, <span class="m">P₁</span>, <span class="m">P₂</span></figcaption><canvas id="cv1" role="img" aria-label="P düzlemi"></canvas></figure>
+<figure><figcaption>R düzlemi: <span class="m">R(x)</span>, doğrusu ve eksen kesişimleri</figcaption><canvas id="cv2" role="img" aria-label="R düzlemi"></canvas></figure>
+</div>
+
+<div class="ctl">
+<label>θ₁ <input type="range" id="t1" min="-180" max="180" step="1" value="20"><output></output></label>
+<label>θ₂ <input type="range" id="t2" min="-180" max="180" step="1" value="130"><output></output></label>
+<label>P₁ reel <input type="range" id="p1x" min="-2.5" max="2.5" step="0.05" value="-1"><output></output></label>
+<label>P₁ imajiner <input type="range" id="p1y" min="-2.5" max="2.5" step="0.05" value="-0.5"><output></output></label>
+<label>P₂ imajiner (sabit y) <input type="range" id="p2y" min="-2.5" max="2.5" step="0.05" value="1.2"><output></output></label>
+<label>P₂ reel (x) <input type="range" id="px" min="-2.5" max="2.5" step="0.01" value="0.8"><output></output></label>
+</div>
+<div class="steps"><button id="play" aria-pressed="false">x’i otomatik kaydır</button></div>
+<div class="warn" id="warn"></div>
+<div class="read" id="read"></div>
+</main>
+
+<script>
+const PI=Math.PI, $=id=>document.getElementById(id);
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const ids=['t1','t2','p1x','p1y','p2y','px'];
+const S={step:1,play:false,dir:1};
+const STEPS=[
+["Çember ve kiriş","<b>z₁ = e^{iθ₁}</b> ve <b>z₂ = e^{iθ₂}</b> birim çemberde. Aralarındaki kiriş <b>z₂ − z₁</b>; bu sayı bölümün paydasını belirler. Açıları değiştirip kirişin yönünü izle."],
+["R’nin oluşması","P₂ yalnızca yatay hareket eder (y sabit). <b>P₂ − P₁</b> vektörünü <b>z₂ − z₁</b>’e bölmek onu döndürür ve ölçekler: sağdaki <b>R</b> noktası budur."],
+["Türev = doğrultu","<b>dR/dx = 1/(z₂ − z₁)</b> sabit bir vektör. P₂ x yönünde 1 birim giderse R tam bu vektör kadar gider; bu yüzden R, eğik bir doğru üzerinde kayar. Doğrunun izini görmek için x’i oynat."],
+["Eksen kesişimleri","Doğru <b>L(k) = R + k·v</b>. İmajiner kısım 0 olunca <b>x₀</b>, reel kısım 0 olunca <b>y₀</b> bulunur. Sağ panelde kırmızı noktalar bunlar."],
+["Tanjant biçimi","Kiriş yönü, <b>A = (θ₁+θ₂)/2</b> ışınına diktir. Bu yüzden oran sadeleşir: <b>x₀ = Rₓ − R_y·tan A</b> ve <b>y₀ = R_y − Rₓ/tan A</b>. Soldaki kesikli ışın A yönüdür; okumadaki iki yöntem aynı sonucu verir."]
+];
+const sb=$('steps');
+STEPS.forEach((s,i)=>{const b=document.createElement('button');b.textContent=(i+1)+'. '+s[0];b.setAttribute('aria-pressed',i==0);
+ b.onclick=()=>{S.step=i+1;[...sb.children].forEach((c,j)=>c.setAttribute('aria-pressed',j==i));draw()};sb.appendChild(b)});
+
+function val(id){return parseFloat($(id).value)}
+function calc(){
+ const a=val('t1')*PI/180,b=val('t2')*PI/180;
+ const z1={x:Math.cos(a),y:Math.sin(a)},z2={x:Math.cos(b),y:Math.sin(b)};
+ const d={x:z2.x-z1.x,y:z2.y-z1.y},den=d.x*d.x+d.y*d.y;
+ const P1={x:val('p1x'),y:val('p1y')},P2={x:val('px'),y:val('p2y')};
+ const w={x:P2.x-P1.x,y:P2.y-P1.y};
+ const v={x:d.x/den,y:-d.y/den};                 // 1/(z2-z1)
+ const R={x:(w.x*d.x+w.y*d.y)/den,y:(w.y*d.x-w.x*d.y)/den};
+ const A=(a+b)/2,tA=Math.tan(A);
+ return{a,b,z1,z2,d,den,P1,P2,w,v,R,A,tA,
+  x0:R.x-R.y*v.x/v.y, y0:R.y-R.x*v.y/v.x,
+  x0t:R.x-R.y*tA, y0t:R.y-R.x/tA};
+}
+function setup(cv){const r=cv.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+ if(cv.width!==Math.round(r.width*dpr)){cv.width=Math.round(r.width*dpr);cv.height=Math.round(r.height*dpr)}
+ const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,r.width,r.height);return[c,r.width]}
+function plane(cv,ext){
+ const[c,W]=setup(cv),s=W/(2*ext),h=W/2;
+ const X=x=>h+x*s,Y=y=>h-y*s;
+ c.lineWidth=1;c.font='12px system-ui';c.fillStyle=css('--mute');
+ const st=ext>8?2:1;
+ c.strokeStyle=css('--grid');c.beginPath();
+ for(let k=-Math.floor(ext);k<=Math.floor(ext);k+=st){c.moveTo(X(k),0);c.lineTo(X(k),W);c.moveTo(0,Y(k));c.lineTo(W,Y(k))}
+ c.stroke();c.strokeStyle=css('--axis');c.beginPath();c.moveTo(0,h);c.lineTo(W,h);c.moveTo(h,0);c.lineTo(h,W);c.stroke();
+ c.fillText('Re',W-22,h-6);c.fillText('Im',h+6,12);
+ const o={c,W,s,X,Y,
+  line(p,q,col,w=2,dash){c.strokeStyle=col;c.lineWidth=w;c.setLineDash(dash||[]);c.beginPath();c.moveTo(X(p.x),Y(p.y));c.lineTo(X(q.x),Y(q.y));c.stroke();c.setLineDash([])},
+  dot(p,col,r=5,label,dx=8,dy=-8){c.fillStyle=col;c.beginPath();c.arc(X(p.x),Y(p.y),r,0,2*PI);c.fill();
+   if(label){c.font='italic 14px Cambria,Georgia,serif';c.fillText(label,X(p.x)+dx,Y(p.y)+dy)}},
+  arrow(p,q,col,w=2){this.line(p,q,col,w);const a=Math.atan2(Y(q.y)-Y(p.y),X(q.x)-X(p.x)),x=X(q.x),y=Y(q.y);
+   c.fillStyle=col;c.beginPath();c.moveTo(x,y);c.lineTo(x-10*Math.cos(a-.4),y-10*Math.sin(a-.4));c.lineTo(x-10*Math.cos(a+.4),y-10*Math.sin(a+.4));c.fill()}};
+ return o;
+}
+const f=n=>Number.isFinite(n)?(Math.abs(n)>1e4?n.toExponential(1):n.toFixed(3)):'∞';
+function draw(){
+ const m=calc(),st=S.step,ok=m.den>1e-6;
+ ids.forEach(id=>{$(id).nextElementSibling.textContent=$(id).previousSibling.textContent.trim()+' = '+val(id)+(id[0]=='t'?'°':'')});
+ $('explain').innerHTML='<b>'+STEPS[st-1][0]+'.</b> '+STEPS[st-1][1];
+ $('warn').textContent=ok?'':'θ₁ = θ₂ iken z₂ = z₁ olur ve R tanımsızdır. Açılardan birini değiştir.';
+ // left plane
+ const L=plane($('cv1'),3),c=L.c,O={x:0,y:0};
+ c.strokeStyle=css('--axis');c.lineWidth=1.5;c.beginPath();c.arc(L.X(0),L.Y(0),L.s,0,2*PI);c.stroke();
+ L.dot(m.z1,css('--z1'),5,'z₁');L.dot(m.z2,css('--z2'),5,'z₂');
+ L.line(O,m.z1,css('--z1'),1,[3,3]);L.line(O,m.z2,css('--z2'),1,[3,3]);
+ L.arrow(m.z1,m.z2,css('--ink'),2);
+ if(st>=2){
+  L.line({x:-3,y:m.P2.y},{x:3,y:m.P2.y},css('--p'),1,[2,4]);
+  L.arrow(m.P1,m.P2,css('--p'),2.5);L.dot(m.P1,css('--p'),5,'P₁');L.dot(m.P2,css('--p'),6,'P₂');
+ }
+ if(st>=5){const u={x:Math.cos(m.A)*2.8,y:Math.sin(m.A)*2.8};L.line({x:-u.x,y:-u.y},u,css('--hit'),1.5,[6,5]);
+  L.dot({x:Math.cos(m.A)*Math.cos((m.b-m.a)/2),y:Math.sin(m.A)*Math.cos((m.b-m.a)/2)},css('--hit'),3,'A',6,-6)}
+ // right plane
+ const ext=Math.max(4,Math.min(40,Math.ceil(Math.hypot(m.R.x,m.R.y)*1.3)));
+ const Q=plane($('cv2'),ext),q=Q.c;
+ if(ok&&st>=2){
+  if(st>=3){const n=Math.hypot(m.v.x,m.v.y),u={x:m.v.x/n*1e3,y:m.v.y/n*1e3};
+   Q.line({x:m.R.x-u.x,y:m.R.y-u.y},{x:m.R.x+u.x,y:m.R.y+u.y},css('--r'),1.5,[6,5]);
+   const sc=Math.min(2/ n,ext*.15/n);Q.arrow(m.R,{x:m.R.x+m.v.x*sc,y:m.R.y+m.v.y*sc},css('--ink'),2.5)}
+  Q.line(O,m.R,css('--r'),1,[2,3]);Q.dot(m.R,css('--r'),6,'R(x)');
+  if(st>=4){
+   if(Number.isFinite(m.x0)){Q.line(m.R,{x:m.x0,y:0},css('--hit'),1,[2,3]);Q.dot({x:m.x0,y:0},css('--hit'),6,'x₀',8,-10)}
+   if(Number.isFinite(m.y0)){Q.line(m.R,{x:0,y:m.y0},css('--hit'),1,[2,3]);Q.dot({x:0,y:m.y0},css('--hit'),6,'y₀',8,-6)}
+  }
+ }
+ $('read').innerHTML=ok?[
+  ['R = (P₂ − P₁)/(z₂ − z₁)',f(m.R.x)+' '+(m.R.y<0?'−':'+')+' '+f(Math.abs(m.R.y))+'i'],
+  ['v = dR/dx = 1/(z₂ − z₁)',f(m.v.x)+' '+(m.v.y<0?'−':'+')+' '+f(Math.abs(m.v.y))+'i'],
+  ['x₀ = Rₓ − R_y·vₓ/v_y',f(m.x0)],
+  ['y₀ = R_y − Rₓ·v_y/vₓ',f(m.y0)],
+  ['x₀ (tanjant) = Rₓ − R_y·tan A',f(m.x0t)],
+  ['y₀ (tanjant) = R_y − Rₓ/tan A',f(m.y0t)],
+  ['A = (θ₁+θ₂)/2',(m.A*180/PI).toFixed(1)+'°  ·  tan A = '+f(m.tA)]
+ ].map(r=>'<div><small>'+r[0]+'</small>'+r[1]+'</div>').join(''):'';
+}
+ids.forEach(id=>$(id).addEventListener('input',draw));
+$('play').onclick=function(){S.play=!S.play;this.setAttribute('aria-pressed',S.play);if(S.play)tick()};
+function tick(){if(!S.play)return;const e=$('px');let x=val('px')+S.dir*0.02;
+ if(x>2.5){x=2.5;S.dir=-1}if(x<-2.5){x=-2.5;S.dir=1}e.value=x;draw();requestAnimationFrame(tick)}
+addEventListener('resize',draw);
+draw();
+</script>
+</body>
+</html>
